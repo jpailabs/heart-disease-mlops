@@ -1,0 +1,26 @@
+# Internal service used by the Ingress.
+apiVersion: v1
+kind: Service
+metadata:
+  name: heart-api
+  namespace: heart-mlops
+  labels: {app: heart-api}
+spec:
+  type: ClusterIP
+  selector: {app: heart-api}
+  ports:
+    - {name: http, port: 80, targetPort: http}
+---
+# External LoadBalancer (gets a public IP on GKE/EKS/AKS or Docker Desktop;
+# on kind it stays <pending> unless cloud-provider-kind is running).
+apiVersion: v1
+kind: Service
+metadata:
+  name: heart-api-lb
+  namespace: heart-mlops
+  labels: {app: heart-api}
+spec:
+  type: LoadBalancer
+  selector: {app: heart-api}
+  ports:
+    - {name: http, port: 80, targetPort: http}

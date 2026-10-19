@@ -1,0 +1,124 @@
+name: ci-cd
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  IMAGE_NAME: heart-api
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install flake8==7.1.1
+      - name: flake8
+        run: flake8 src api tests scripts --count --show-source --statistics
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+      - name: Unit tests
+        run: |
+          mkdir -p test-reports
+          pytest --junitxml=test-reports/junit.xml \
+                 --cov=src/heart --cov=api --cov-report=xml:test-reports/coverage.xml \
+                 --cov-report=term-missing
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: test-reports/
+
+  train:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+      - name: Download and clean data
+        run: python scripts/download_data.py --force
+      - name: EDA figures
+        run: python -m heart.eda
+      - name: Train, tune and track (MLflow)
+        run: python -m heart.train --register 2>&1 | tee train.log
+      - name: Quality gate (test ROC-AUC >= 0.85)
+        run: |
+          python - <<'PY'
+          import json, sys
+          m = json.load(open("models/model_metadata.json"))["metrics"]
+          print(json.dumps(m, indent=2))
+          sys.exit(0 if m["test_roc_auc"] >= 0.85 else 1)
+          PY
+      - name: Upload model + experiment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-and-experiments
+          path: |
+            models/
+            mlflow.db
+            mlruns/
+            reports/figures/
+            data/processed/
+            train.log
+
+  docker:
+    needs: train
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: model-and-experiments
+      - name: Build image
+        run: docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest .
+      - name: Smoke test container
+        run: |
+          docker run -d --name api -p 8000:8000 $IMAGE_NAME:latest
+          for i in $(seq 1 30); do curl -sf localhost:8000/ready && break; sleep 2; done
+          curl -sf -X POST localhost:8000/predict \
+               -H 'content-type: application/json' \
+               -d @sample_request.json | tee prediction.json
+          python3 -c "import json;r=json.load(open('prediction.json'));assert r['prediction'] in (0,1)"
+          docker logs api > container.log 2>&1
+      - name: Save image
+        run: docker save $IMAGE_NAME:latest | gzip > heart-api-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-image-and-logs
+          path: |
+            heart-api-image.tar.gz
+            container.log
+            prediction.json
+          retention-days: 5

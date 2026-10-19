@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: heart-api
+  namespace: heart-mlops
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: heart-api}

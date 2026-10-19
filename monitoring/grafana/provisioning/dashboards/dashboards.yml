@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: heart
+    folder: Heart API
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

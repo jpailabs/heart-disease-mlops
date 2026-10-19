@@ -1,0 +1,18 @@
+groups:
+  - name: heart-api
+    rules:
+      - alert: HeartApiDown
+        expr: up{job="heart-api"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "Heart API target is down"}
+      - alert: HeartApiHighErrorRate
+        expr: sum(rate(heart_api_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(heart_api_requests_total[5m])), 1e-9) > 0.05
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: "More than 5% of requests are failing"}
+      - alert: HeartApiSlow
+        expr: histogram_quantile(0.95, sum(rate(heart_api_request_latency_seconds_bucket{path="/predict"}[5m])) by (le)) > 0.5
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "p95 /predict latency above 500 ms"}

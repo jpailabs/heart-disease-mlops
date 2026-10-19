@@ -1,0 +1,13 @@
+.venv
+.git
+mlruns
+mlartifacts
+mlflow.db
+data
+notebooks
+reports
+screenshots
+tests
+*.ipynb
+**/__pycache__
+.pytest_cache

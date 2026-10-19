@@ -1,0 +1,5 @@
+[flake8]
+max-line-length = 100
+exclude = .venv,mlruns,mlartifacts,notebooks,.ipynb_checkpoints,build
+per-file-ignores =
+    src/heart/train.py:E402
