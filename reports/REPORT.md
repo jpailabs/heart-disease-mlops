@@ -192,7 +192,7 @@ The same stages can be run locally with `scripts/ci_local.sh`. It trains into a 
 
 ![Local run of the CI stages](../screenshots/19_local_ci_pipeline.png){width=72%}
 
-**GitHub Actions run** ([run 39192404663](https://github.com/jpailabs/heart-disease-mlops/actions/runs/39192404663)): all four jobs passed on a clean Ubuntu runner. CI training reproduced exactly the local test metrics (ROC-AUC 0.9589), which confirms the pipeline is reproducible across machines.
+**GitHub Actions run** ([run 39194105001](https://github.com/jpailabs/heart-disease-mlops/actions/runs/39194105001)): all four jobs passed on a clean Ubuntu runner. CI training reproduced exactly the local test metrics (ROC-AUC 0.9589), which confirms the pipeline is reproducible across machines.
 
 ![GitHub Actions run - jobs, artifacts and quality gate](../screenshots/20_github_actions_run.png){width=70%}
 
