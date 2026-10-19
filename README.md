@@ -22,7 +22,8 @@ This project predicts the risk of heart disease from 13 patient measurements in 
 | **5-fold CV ROC-AUC** | 0.908 ± 0.020 |
 | **Hold-out test** | ROC-AUC 0.959 · accuracy 0.869 · recall 0.929 · precision 0.813 |
 | **Report** | [`reports/MLOps_Assignment1_Report.pdf`](reports/MLOps_Assignment1_Report.pdf) / [`.docx`](reports/MLOps_Assignment1_Report.docx) |
-| **Code repository** | https://github.com/jpailabs/heart-disease-mlops |
+| **Live app (web UI + API)** | **https://heart.jpailabs.tech** · [API docs](https://heart.jpailabs.tech/docs) |
+| **Code repository** | https://github.com/jpailabs/heart-disease-mlops (deployment repo: https://github.com/jpailabs/heart-disease-railway) |
 | **CI status** | [![ci-cd](https://github.com/jpailabs/heart-disease-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/jpailabs/heart-disease-mlops/actions/workflows/ci.yml) |
 
 ![architecture](reports/figures/architecture.png)
@@ -140,7 +141,15 @@ To clean up:
 kind delete cluster --name heart-mlops
 ```
 
-## 6. CI/CD
+## 6. Public cloud deployment (Railway)
+
+The same API, with an added web UI for entering new patients, runs on Railway at **https://heart.jpailabs.tech**. Railway builds it from the Dockerfile in the [heart-disease-railway](https://github.com/jpailabs/heart-disease-railway) repo and redeploys it on every push to `main`. The custom domain is a CNAME record in Hostinger DNS, and the TLS certificate comes from Let's Encrypt.
+
+```bash
+curl -X POST https://heart.jpailabs.tech/predict -H 'content-type: application/json' -d @sample_request.json
+```
+
+## 7. CI/CD
 
 `.github/workflows/ci.yml` runs on every push and pull request. Each job depends on the previous one, so any lint error, failing test or missed quality gate stops the pipeline:
 

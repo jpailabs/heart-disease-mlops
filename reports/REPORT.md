@@ -6,7 +6,7 @@ date: "October 2026"
 ---
 
 **Code repository:** <https://github.com/jpailabs/heart-disease-mlops> (private; grant access to the evaluator)
-**API access:** see §8 (local Kubernetes via Ingress at `http://localhost:8088`)
+**Live API & web UI:** <https://heart.jpailabs.tech> (Railway) · local Kubernetes access in §10
 
 # 1. Executive summary
 
@@ -22,7 +22,7 @@ This project builds a classifier that predicts whether a patient has heart disea
 | Packaging | `heart_model.joblib` (full pipeline), an MLflow model with signature, pinned and locked requirements |
 | CI/CD | GitHub Actions: lint → test → train with quality gate → Docker build and smoke test, with artifacts at each stage |
 | Serving | FastAPI with input validation; `/predict` returns a prediction plus a confidence score |
-| Deployment | kind Kubernetes cluster: 2 replicas, probes, PDB, Ingress (nginx) and a LoadBalancer service |
+| Deployment | kind Kubernetes cluster: 2 replicas, probes, PDB, Ingress (nginx) and a LoadBalancer service; public cloud deployment on Railway at https://heart.jpailabs.tech, with a web UI |
 | Monitoring | structured JSON request logs; Prometheus (per-pod scraping, alert rules); a provisioned Grafana dashboard |
 
 **Result.** Tuned Logistic Regression was selected. Its mean 5-fold CV ROC-AUC is **0.908**. On the hold-out test set it scores ROC-AUC **0.959**, accuracy **0.869** and recall **0.929**.
@@ -247,6 +247,24 @@ curl -X POST http://localhost:8088/predict -H 'content-type: application/json' -
 
 Interactive documentation is at `http://localhost:8088/docs`.
 
+## 10.1 Public cloud deployment: Railway
+
+Kubernetes is the main deployment target. The same model and API, packaged with an added web UI, also run on **Railway**, which provides a public, HTTPS-secured endpoint at **<https://heart.jpailabs.tech>**.
+
+* **Repository.** The deployment repo, [jpailabs/heart-disease-railway](https://github.com/jpailabs/heart-disease-railway), contains the serving code, the trained pipeline and a Railway configuration file (`railway.json`). That file sets the Dockerfile builder, a `/ready` healthcheck and restart-on-failure. Railway builds the image and redeploys it on every push to `main`. Its CI also smoke-tests the container with a Railway-style `PORT` variable.
+* **Port.** The Dockerfile listens on `${PORT:-8000}`, so one image works on Railway, Docker and Kubernetes.
+* **Web UI.** The UI at `/` is a form for entering a new patient. Its sections are demographics, symptoms and vitals, ECG and exercise test, and optional imaging fields. It sends the input to `/predict`, then shows:
+  * the probability of disease on a low / moderate / high risk meter
+  * the predicted class and the model's confidence
+  * the history of predictions made in the session
+
+  The browser checks the inputs, and the API checks them again (HTTP 422 for invalid input).
+* **Custom domain.** `heart.jpailabs.tech` is a CNAME record in Hostinger DNS pointing to Railway's edge, plus a TXT record that proves ownership of the domain. Railway issues the Let's Encrypt certificate automatically.
+
+![Live web UI at heart.jpailabs.tech](../screenshots/21_railway_live_web_ui.png){width=80%}
+
+![Live endpoint checks: DNS, TLS, /ready, /predict, validation, /model-info](../screenshots/22_railway_live_api_checks.png){width=85%}
+
 # 11. Monitoring and logging
 
 * **Request logging.** HTTP middleware writes one JSON line per request to stdout, with `request_id`, method, path, status, latency and client IP. The request id is also returned in the `x-request-id` header. Each prediction is logged with its input and output, which gives an audit trail and data for later drift analysis. Kubernetes collects these logs with `kubectl logs`.
@@ -293,6 +311,6 @@ Interactive documentation is at `http://localhost:8088/docs`.
 | Unit tests | `tests/` |
 | CI workflow | `.github/workflows/ci.yml` |
 | Deployment manifests | `k8s/`, `k8s/monitoring/` |
-| Screenshots | `screenshots/` (21 images) |
+| Screenshots | `screenshots/` (23 images) |
 | Report | `reports/MLOps_Assignment1_Report.pdf` / `.docx` |
-| API access | §10 access instructions |
+| API access | live: https://heart.jpailabs.tech (web UI, `/docs`); local Kubernetes: §10 |
